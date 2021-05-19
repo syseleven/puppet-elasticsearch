@@ -69,7 +69,7 @@ class elasticsearch::config {
         owner  => 'root',
         group  => $elasticsearch::elasticsearch_group,
         mode   => '0660',
-        before => Service['elasticsearch'],
+        before => Service[$elasticsearch::service_name],
         notify => $elasticsearch::_notify_service,
       }
     } else {
@@ -77,7 +77,7 @@ class elasticsearch::config {
         incl    => "${elasticsearch::defaults_location}/elasticsearch",
         lens    => 'Shellvars.lns',
         changes => template("${module_name}/etc/sysconfig/defaults.erb"),
-        before  => Service['elasticsearch'],
+        before  => Service[$elasticsearch::service_name],
         notify  => $elasticsearch::_notify_service,
       }
     }
@@ -138,27 +138,27 @@ class elasticsearch::config {
       $_tls_config = {}
     }
 
-    # # Logging file or hash
-    # if ($elasticsearch::logging_file != undef) {
-    #   $_log4j_content = undef
-    # } else {
-    #   if ($elasticsearch::logging_template != undef ) {
-    #     $_log4j_content = template($elasticsearch::logging_template)
-    #   } else {
-    #     $_log4j_content = template("${module_name}/etc/elasticsearch/log4j2.properties.erb")
-    #   }
-    #   $_logging_source = undef
-    # }
-    # file {
-    #   "${elasticsearch::configdir}/log4j2.properties":
-    #     ensure  => file,
-    #     content => $_log4j_content,
-    #     source  => $_logging_source,
-    #     mode    => '0644',
-    #     notify  => $elasticsearch::_notify_service,
-    #     require => Class['elasticsearch::package'],
-    #     before  => Class['elasticsearch::service'],
-    # }
+    # Logging file or hash
+    if ($elasticsearch::logging_file != undef) {
+      $_log4j_content = undef
+    } else {
+      if ($elasticsearch::logging_template != undef ) {
+        $_log4j_content = template($elasticsearch::logging_template)
+      } else {
+        $_log4j_content = template("${module_name}/etc/elasticsearch/log4j2.properties.erb")
+      }
+      $_logging_source = undef
+    }
+
+    file { "${elasticsearch::configdir}/log4j2.properties":
+      ensure  => file,
+      content => $_log4j_content,
+      source  => $_logging_source,
+      mode    => '0644',
+      notify  => $elasticsearch::_notify_service,
+      require => Class['elasticsearch::package'],
+      before  => Class['elasticsearch::service'],
+    }
 
     # Generate Elasticsearch config
     $_es_config = merge(
@@ -182,13 +182,20 @@ class elasticsearch::config {
       mode     => '0440',
     }
 
+    file { "${elasticsearch::configdir}/jvm.options":
+      ensure => present,
+      owner  => $elasticsearch::elasticsearch_user,
+      group  => $elasticsearch::elasticsearch_group,
+    }
+
     # Add any additional JVM options
     $elasticsearch::jvm_options.each |String $jvm_option| {
       file_line { "jvm_option_${jvm_option}":
-        ensure => present,
-        path   => "${elasticsearch::configdir}/jvm.options",
-        line   => $jvm_option,
-        notify => $elasticsearch::_notify_service,
+        ensure  => present,
+        path    => "${elasticsearch::configdir}/jvm.options",
+        line    => $jvm_option,
+        notify  => $elasticsearch::_notify_service,
+        require => File["${elasticsearch::configdir}/jvm.options"],
       }
     }
 
@@ -219,7 +226,7 @@ class elasticsearch::config {
 
     file { "${elasticsearch::defaults_location}/elasticsearch":
       ensure    => 'absent',
-      subscribe => Service['elasticsearch'],
+      subscribe => Service[$elasticsearch::service_name],
     }
   }
 }
