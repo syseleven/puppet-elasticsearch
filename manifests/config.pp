@@ -70,7 +70,7 @@ class elasticsearch::config {
       '/etc/elasticsearch/elasticsearch.yml':
         ensure => 'absent';
       '/etc/elasticsearch/jvm.options':
-        ensure => 'absent';
+        ensure => 'file';
       '/etc/elasticsearch/logging.yml':
         ensure => 'absent';
       '/etc/elasticsearch/log4j2.properties':
